@@ -1,0 +1,21 @@
+{
+  "name": "tenant-access-api-tests",
+  "version": "1.0.0",
+  "description": "Playwright API tests that check role and tenant boundaries, reproduce access-control findings and retest their fixes.",
+  "author": "Luka Gabidzashvili",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "node app/start.js",
+    "test": "playwright test",
+    "test:vulnerable": "playwright test --project=vulnerable-build",
+    "test:fixed": "playwright test --project=fixed-build",
+    "report": "playwright show-report"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}
