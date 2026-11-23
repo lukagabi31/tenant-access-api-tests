@@ -7,6 +7,7 @@
 // The findings are documented in /findings and covered by tests in /tests.
 
 const crypto = require('crypto');
+const path = require('path');
 const express = require('express');
 
 function seedUsers() {
@@ -33,6 +34,7 @@ function publicUser(user) {
 function createApp({ fixed = false } = {}) {
   const app = express();
   app.use(express.json());
+  app.use(express.static(path.join(__dirname, 'public'))); // the web UI at /
 
   let users = seedUsers();
   let projects = seedProjects();
