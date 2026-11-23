@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Projects</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; color: #1f2328; }
+    form { display: grid; gap: 8px; max-width: 280px; }
+    input, button { font: inherit; padding: 6px 10px; }
+    [role="alert"] { color: #b42318; }
+    ul { padding: 0; list-style: none; }
+    li { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #d0d7de; }
+    .muted { color: #57606a; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <h1>Projects</h1>
+
+  <section id="login-view">
+    <form id="login-form">
+      <label for="username">Username</label>
+      <input id="username" name="username" autocomplete="username" required>
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required>
+      <button type="submit">Sign in</button>
+    </form>
+    <p id="login-error" role="alert" hidden></p>
+  </section>
+
+  <section id="projects-view" hidden>
+    <p id="signed-in-as" class="muted"></p>
+    <p id="projects-loading" class="muted" hidden>Loading projects…</p>
+    <p id="projects-error" role="alert" hidden>Could not load projects. Please try again.</p>
+    <p id="projects-empty" class="muted" hidden>No projects yet.</p>
+    <ul id="projects-list" aria-label="Projects"></ul>
+  </section>
+
+  <script>
+    // A deliberately small UI for the project API. It keeps the token in memory only.
+    let token = null;
+    let me = null;
+
+    const $ = (id) => document.getElementById(id);
+
+    async function api(path, options = {}) {
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      return fetch(path, { ...options, headers });
+    }
+
+    $('login-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      $('login-error').hidden = true;
+      const response = await api('/login', {
+        method: 'POST',
+        body: JSON.stringify({ username: $('username').value, password: $('password').value }),
+      });
+      if (!response.ok) {
+        $('login-error').textContent = 'Wrong username or password.';
+        $('login-error').hidden = false;
+        return;
+      }
+      token = (await response.json()).token;
+      me = await (await api('/me')).json();
+      $('login-view').hidden = true;
+      $('projects-view').hidden = false;
+      $('signed-in-as').textContent = `Signed in as ${me.username} (${me.role}, ${me.tenant})`;
+      await loadProjects();
+    });
+
+    async function loadProjects() {
+      const list = $('projects-list');
+      list.replaceChildren();
+      $('projects-error').hidden = true;
+      $('projects-empty').hidden = true;
+      $('projects-loading').hidden = false;
+
+      let response;
+      try {
+        response = await api(`/tenants/${encodeURIComponent(me.tenant)}/projects`);
+      } catch {
+        response = null;
+      }
+      $('projects-loading').hidden = true;
+
+      if (!response || !response.ok) {
+        $('projects-error').hidden = false;
+        return;
+      }
+      const projects = await response.json();
+      if (projects.length === 0) {
+        $('projects-empty').hidden = false;
+        return;
+      }
+      for (const project of projects) {
+        const item = document.createElement('li');
+        const name = document.createElement('span');
+        name.dataset.testid = 'project-name';
+        name.textContent = project.name; // textContent, never innerHTML: names are user input
+        item.append(name);
+        if (me.role === 'admin') {
+          const remove = document.createElement('button');
+          remove.textContent = 'Delete';
+          remove.setAttribute('aria-label', `Delete ${project.name}`);
+          remove.addEventListener('click', async () => {
+            const result = await api(`/projects/${encodeURIComponent(project.id)}`, { method: 'DELETE' });
+            if (result.status === 204) item.remove();
+          });
+          item.append(remove);
+        }
+        list.append(item);
+      }
+    }
+  </script>
+</body>
+</html>
